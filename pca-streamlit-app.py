@@ -530,8 +530,9 @@ if uploaded_file is not None or use_demo:
                 gene_contribution['PC2_contribution'] = loadings_df['PC2'].abs() * explained_variance[1]
                 gene_contribution['Total_contribution'] = gene_contribution['PC1_contribution'] + gene_contribution['PC2_contribution']
                 
-                # Get top contributing genes
-                top_genes = gene_contribution.sort_values('Total_contribution', ascending=False).head(top_genes_count)
+                # Get top contributing genes - fetch more than needed to ensure we have enough after filtering
+                # We'll trim to exactly top_genes_count later
+                top_genes = gene_contribution.sort_values('Total_contribution', ascending=False).head(max(30, top_genes_count))
                 
                 # Create loadings plot
                 fig_loadings, ax_loadings = plt.subplots(figsize=(12, 12))
@@ -575,7 +576,10 @@ if uploaded_file is not None or use_demo:
                 
                 # Plot top genes with appropriate colors
                 if highlight_style == "Colorful":
-                    for i, gene in enumerate(top_genes.index):
+                    # Ensure we only highlight the exact number of top genes specified by the user
+                    top_genes_to_highlight = list(top_genes.index)[:top_genes_count]
+                    
+                    for i, gene in enumerate(top_genes_to_highlight):
                         ax_loadings.scatter(
                             loadings_df.loc[gene, 'PC1'],
                             loadings_df.loc[gene, 'PC2'],
@@ -587,9 +591,12 @@ if uploaded_file is not None or use_demo:
                             zorder=5
                         )
                 else:
+                    # Ensure we only highlight the exact number of top genes specified by the user
+                    top_genes_to_highlight = list(top_genes.index)[:top_genes_count]
+                    
                     ax_loadings.scatter(
-                        loadings_df.loc[top_genes.index, 'PC1'],
-                        loadings_df.loc[top_genes.index, 'PC2'],
+                        loadings_df.loc[top_genes_to_highlight, 'PC1'],
+                        loadings_df.loc[top_genes_to_highlight, 'PC2'],
                         s=120,
                         color=highlight_color,
                         alpha=0.9,
@@ -598,8 +605,8 @@ if uploaded_file is not None or use_demo:
                         zorder=5
                     )
                 
-                # Add gene labels with style based on selection
-                for gene in top_genes.index:
+                # Add gene labels with style based on selection - only for selected top genes
+                for gene in list(top_genes.index)[:top_genes_count]:
                     label_kwargs = {
                         'fontsize': 12 if highlight_style == "Bold" else 11,
                         'fontweight': 'bold',
@@ -625,8 +632,9 @@ if uploaded_file is not None or use_demo:
                 # Set arrow thickness based on slider
                 actual_arrow_thickness = arrow_thickness * 0.8  # Convert slider value to appropriate thickness
                 
-                # Add arrows from origin
-                for gene in top_genes.index:
+                # Add arrows from origin - this should use top_genes_count from the slider
+                # Make sure we're using exactly the number of genes selected by the user
+                for gene in list(top_genes.index)[:top_genes_count]:  # Explicitly limit to top_genes_count
                     # Use gene-specific color if using colorful style
                     arrow_fc = gene_color_dict.get(gene, arrow_color) if highlight_style == "Colorful" else arrow_color
                     arrow_ec = gene_color_dict.get(gene, arrow_color) if highlight_style == "Colorful" else arrow_color
@@ -669,7 +677,11 @@ if uploaded_file is not None or use_demo:
                 
                 # Table of top genes
                 st.markdown("#### Top Contributing Genes")
-                gene_contrib_display = top_genes.copy()
+                
+                # Make sure we're displaying exactly the number of genes requested by the user
+                top_genes_display = top_genes.head(top_genes_count).copy()
+                
+                gene_contrib_display = top_genes_display.copy()
                 gene_contrib_display['PC1_contribution'] = gene_contrib_display['PC1_contribution'].map(lambda x: f"{x:.2f}%")
                 gene_contrib_display['PC2_contribution'] = gene_contrib_display['PC2_contribution'].map(lambda x: f"{x:.2f}%")
                 gene_contrib_display['Total_contribution'] = gene_contrib_display['Total_contribution'].map(lambda x: f"{x:.2f}%")
