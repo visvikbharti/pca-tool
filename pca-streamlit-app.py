@@ -605,33 +605,49 @@ if uploaded_file is not None or use_demo:
                         zorder=5
                     )
                 
-                # Add gene labels with style based on selection - only for selected top genes
+                # Add gene labels with improved positioning and visibility
                 for gene in list(top_genes.index)[:top_genes_count]:
+                    # Get gene coordinates
+                    gene_x = loadings_df.loc[gene, 'PC1']
+                    gene_y = loadings_df.loc[gene, 'PC2']
+                    
+                    # Calculate offset for label placement
+                    # Place label with more distance from the point, and adjust based on quadrant
+                    offset_x = 12 if gene_x >= 0 else -12
+                    offset_y = 12 if gene_y >= 0 else -12
+                    
+                    # Adjust text alignment based on quadrant
+                    ha = 'left' if gene_x >= 0 else 'right'
+                    va = 'bottom' if gene_y >= 0 else 'top'
+                    
+                    # Create a background for the text for better visibility
                     label_kwargs = {
-                        'fontsize': 12 if highlight_style == "Bold" else 11,
+                        'fontsize': 11,
                         'fontweight': 'bold',
+                        'ha': ha,
+                        'va': va,
+                        'bbox': dict(
+                            boxstyle="round,pad=0.3",
+                            fc="white",
+                            ec="gray" if highlight_style != "Colorful" else gene_color_dict.get(gene, "gray"),
+                            alpha=0.95,  # More opaque background
+                            linewidth=1.5
+                        ),
+                        'zorder': 10  # Ensure labels are on top
                     }
                     
-                    if highlight_style in ["Bold", "Colorful"]:
-                        label_kwargs['bbox'] = dict(
-                            boxstyle="round,pad=0.3", 
-                            fc="white", 
-                            ec="gray" if highlight_style == "Bold" else gene_color_dict.get(gene, "gray") if highlight_style == "Colorful" else "gray",
-                            alpha=0.9,
-                            linewidth=1.5
-                        )
-                    
+                    # Add the label with offset
                     ax_loadings.annotate(
                         gene,
-                        (loadings_df.loc[gene, 'PC1'], loadings_df.loc[gene, 'PC2']),
-                        xytext=(8, 8),
+                        (gene_x, gene_y),
+                        xytext=(offset_x, offset_y),
                         textcoords='offset points',
                         **label_kwargs
                     )
                 
-                # Set arrow thickness based on slider with better scaling for different data types
-                # Use a non-linear scale to provide better control at lower values
-                actual_arrow_thickness = arrow_thickness * 0.4  # Reduce base thickness by more than half
+                # Force arrow sizes to be MUCH smaller regardless of data size
+                # Fixed sizes instead of dynamic calculation
+                actual_arrow_thickness = max(0.1, arrow_thickness * 0.1)  # Even more drastic reduction
                 
                 # Add arrows from origin - this should use top_genes_count from the slider
                 # Make sure we're using exactly the number of genes selected by the user
@@ -640,31 +656,34 @@ if uploaded_file is not None or use_demo:
                     arrow_fc = gene_color_dict.get(gene, arrow_color) if highlight_style == "Colorful" else arrow_color
                     arrow_ec = gene_color_dict.get(gene, arrow_color) if highlight_style == "Colorful" else arrow_color
                     
-                    # Scale head size proportional to the data range to avoid overly large arrowheads
-                    # Calculate the proportion of this gene's vector length to scale appropriately
+                    # Get the coordinates for the gene
                     gene_x = loadings_df.loc[gene, 'PC1']
                     gene_y = loadings_df.loc[gene, 'PC2']
-                    gene_length = np.sqrt(gene_x**2 + gene_y**2)
                     
-                    # Get max length to normalize
-                    max_length = max([np.sqrt(loadings_df.loc[g, 'PC1']**2 + loadings_df.loc[g, 'PC2']**2) 
-                                     for g in list(top_genes.index)[:top_genes_count]])
-                    
-                    # Scale head size inversely with gene_length/max_length ratio
-                    # This makes arrowheads proportionally smaller for longer vectors
-                    head_scale = min(1.0, 0.3 + 0.7 * (1 - gene_length/max_length if max_length > 0 else 0.5))
-                    
+                    # Extremely small fixed arrow heads regardless of data
                     ax_loadings.arrow(
                         0, 0,
                         gene_x,
                         gene_y,
-                        head_width=0.01 + (0.005 * arrow_thickness * head_scale),  # Much smaller base size
-                        head_length=0.015 + (0.008 * arrow_thickness * head_scale), # Much smaller base size
+                        head_width=0.001 + (0.0005 * arrow_thickness),  # Extremely small fixed size
+                        head_length=0.002 + (0.0008 * arrow_thickness),  # Extremely small fixed size
                         fc=arrow_fc,
                         ec=arrow_ec,
                         linewidth=actual_arrow_thickness,
                         alpha=0.8,
                         zorder=4
+                    )
+                    
+                    # Add circle at the end point instead of relying on arrowhead
+                    ax_loadings.scatter(
+                        gene_x, 
+                        gene_y,
+                        s=40,  # Fixed size for visibility
+                        color='white',
+                        alpha=1.0,
+                        edgecolors=arrow_fc,
+                        linewidths=1.5,
+                        zorder=5
                     )
                 
                 # Add circle
